@@ -2,10 +2,19 @@ import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/shared/Sidebar'
 import { Header } from '@/components/shared/Header'
+import { NotificationToast } from '@/components/shared/NotificationToast'
+import { getNotifications } from '@/lib/notifications'
+import { requireAuth } from '@/lib/session'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session) redirect('/login')
+
+  let notifications: Awaited<ReturnType<typeof getNotifications>> = []
+  try {
+    const user = await requireAuth()
+    notifications = await getNotifications(user.organizationId)
+  } catch { /* não bloqueia o layout */ }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -14,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Header userName={session.user?.name} userRole={(session.user as { role?: string })?.role} />
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
+      <NotificationToast notifications={notifications} />
     </div>
   )
 }

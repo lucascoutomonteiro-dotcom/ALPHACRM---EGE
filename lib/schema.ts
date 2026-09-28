@@ -518,3 +518,32 @@ export const dealProducts = pgTable('deal_products', {
   discount: numeric('discount', { precision: 5, scale: 2 }).default('0'),
   createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
 })
+
+// ──────────────────────────────────────────────
+// FASE 9 — CAMPOS PERSONALIZADOS
+// ──────────────────────────────────────────────
+
+export const customFields = pgTable('custom_fields', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  entityType: text('entity_type').notNull(), // contato | deal | lead
+  label: text('label').notNull(),
+  fieldType: text('field_type').notNull(), // text | number | date | select | boolean
+  options: text('options'), // JSON array de strings para tipo select
+  required: boolean('required').default(false),
+  active: boolean('active').default(true),
+  position: integer('position').default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`now()`),
+})
+
+export const customFieldValues = pgTable('custom_field_values', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  fieldId: uuid('field_id').references(() => customFields.id, { onDelete: 'cascade' }).notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: uuid('entity_id').notNull(),
+  value: text('value'),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`now()`),
+})

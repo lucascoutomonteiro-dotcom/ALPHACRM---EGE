@@ -19,6 +19,7 @@ import {
   Handshake,
   Activity,
   Package,
+  Sliders,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -35,6 +36,7 @@ const navItems = [
   { href: '/plano', label: 'Plano de Ação', icon: ClipboardList },
   { href: '/key-accounts', label: 'Key Accounts', icon: Star },
   { href: '/admin/pipelines', label: 'Pipelines', icon: GitBranch },
+  { href: '/admin/campos', label: 'Campos', icon: Sliders },
   { href: '/admin/usuarios', label: 'Usuários', icon: Settings },
 ]
 

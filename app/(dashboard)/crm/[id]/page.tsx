@@ -1,10 +1,12 @@
 import { db } from '@/lib/db'
-import { contatos, interacoes, timelineEvents } from '@/lib/schema'
-import { eq, desc } from 'drizzle-orm'
+import { contatos, interacoes, timelineEvents, customFields, customFieldValues } from '@/lib/schema'
+import { eq, desc, and } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { auth } from '@/auth'
+import { requireAuth } from '@/lib/session'
 import { StatusBadge } from '@/components/crm/StatusBadge'
 import { DetalheContatoClient } from './DetalheContatoClient'
+import { CustomFieldsPanel } from '@/components/shared/CustomFieldsPanel'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Phone, Mail, MapPin } from 'lucide-react'
@@ -15,6 +17,7 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
   const { id } = await params
   const session = await auth()
   const userId = (session?.user as { id?: string })?.id ?? ''
+  const user = await requireAuth()
 
   const [contato] = await db.select({
     id: contatos.id,
@@ -72,6 +75,32 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
     .where(eq(timelineEvents.entityId, id))
     .orderBy(desc(timelineEvents.createdAt))
 
+  const camposContato = await db.select({
+    id: customFields.id,
+    label: customFields.label,
+    fieldType: customFields.fieldType,
+    options: customFields.options,
+    required: customFields.required,
+  }).from(customFields)
+    .where(and(
+      eq(customFields.organizationId, user.organizationId),
+      eq(customFields.entityType, 'contato'),
+      eq(customFields.active, true),
+    ))
+
+  const valoresContato = camposContato.length > 0
+    ? await db.select({
+        fieldId: customFieldValues.fieldId,
+        value: customFieldValues.value,
+      }).from(customFieldValues)
+        .where(eq(customFieldValues.entityId, id))
+    : []
+
+  const camposComValor = camposContato.map(c => ({
+    ...c,
+    value: valoresContato.find(v => v.fieldId === c.id)?.value ?? null,
+  }))
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="bg-white rounded-xl border p-6">
@@ -106,6 +135,10 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
         )}
         <DetalheContatoClient contato={contato as Parameters<typeof DetalheContatoClient>[0]['contato']} userId={userId} />
       </div>
+
+      {camposComValor.length > 0 && (
+        <CustomFieldsPanel campos={camposComValor} entityType="contato" entityId={id} />
+      )}
 
       <div className="bg-white rounded-xl border p-6">
         <h2 className="font-semibold mb-4 text-sm">Linha do Tempo</h2>
