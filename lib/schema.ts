@@ -491,3 +491,30 @@ export const accounts = pgTable('empresas', {
   createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`now()`),
 })
+
+// ──────────────────────────────────────────────
+// FASE 8 — PRODUTOS / CATÁLOGO
+// ──────────────────────────────────────────────
+
+export const products = pgTable('products', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  name: text('name').notNull(),
+  description: text('description'),
+  category: text('category'),
+  price: numeric('price', { precision: 14, scale: 2 }),
+  unit: text('unit').default('unidade'),
+  active: boolean('active').default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`now()`),
+})
+
+export const dealProducts = pgTable('deal_products', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  dealId: uuid('deal_id').references(() => deals.id, { onDelete: 'cascade' }).notNull(),
+  productId: uuid('product_id').references(() => products.id).notNull(),
+  quantity: numeric('quantity', { precision: 10, scale: 2 }).default('1'),
+  unitPrice: numeric('unit_price', { precision: 14, scale: 2 }),
+  discount: numeric('discount', { precision: 5, scale: 2 }).default('0'),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+})

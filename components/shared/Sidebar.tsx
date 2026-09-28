@@ -18,6 +18,7 @@ import {
   UserPlus,
   Handshake,
   Activity,
+  Package,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/leads', label: 'Leads', icon: UserPlus },
   { href: '/deals', label: 'Deals', icon: Handshake },
   { href: '/activities', label: 'Atividades', icon: Activity },
+  { href: '/products', label: 'Produtos', icon: Package },
   { href: '/accounts', label: 'Empresas', icon: Briefcase },
   { href: '/oportunidades', label: 'Oportunidades', icon: Building2 },
   { href: '/metas', label: 'Metas', icon: Target },
