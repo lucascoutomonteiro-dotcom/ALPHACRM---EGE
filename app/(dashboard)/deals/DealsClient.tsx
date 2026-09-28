@@ -77,7 +77,7 @@ function DealForm({ deal, pipelines, stages, contatos, onClose }: {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b">
-          <h2 className="font-bold text-[#1A1A2E]">{deal ? 'Editar Deal' : 'Novo Deal'}</h2>
+          <h2 className="font-bold text-[#1A1A2E]">{deal ? 'Editar Proposta' : 'Nova Proposta'}</h2>
           <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3">
@@ -145,7 +145,7 @@ function DealForm({ deal, pipelines, stages, contatos, onClose }: {
               className="flex-1 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={pending}
               className="flex-1 py-2 bg-[#1B4F8A] text-white rounded-lg text-sm font-medium hover:bg-[#163f70] disabled:opacity-50">
-              {pending ? 'Salvando...' : deal ? 'Salvar' : 'Criar Deal'}
+              {pending ? 'Salvando...' : deal ? 'Salvar' : 'Criar Proposta'}
             </button>
           </div>
         </form>
@@ -293,8 +293,8 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1B4F8A]">Deals</h1>
-          <p className="text-sm text-gray-500">{initial.length} negócios</p>
+          <h1 className="text-2xl font-bold text-[#1B4F8A]">Propostas</h1>
+          <p className="text-sm text-gray-500">{initial.length} proposta{initial.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex border rounded-lg overflow-hidden">
@@ -309,7 +309,7 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
           </div>
           <button onClick={() => setShowForm(true)}
             className="flex items-center gap-2 bg-[#1B4F8A] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#163f70]">
-            <Plus className="h-4 w-4" /> Novo Deal
+            <Plus className="h-4 w-4" /> Nova Proposta
           </button>
         </div>
       </div>
@@ -319,17 +319,17 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
         <div className="bg-white rounded-xl border p-3">
           <div className="text-xs text-gray-500">Em aberto</div>
           <div className="text-lg font-bold text-[#1B4F8A]">{fmt(String(totalOpen))}</div>
-          <div className="text-xs text-gray-400">{initial.filter(d => d.status === 'open').length} deals</div>
+          <div className="text-xs text-gray-400">{initial.filter(d => d.status === 'open').length} propostas</div>
         </div>
         <div className="bg-white rounded-xl border p-3">
           <div className="text-xs text-gray-500">Ganhos</div>
           <div className="text-lg font-bold text-green-600">{fmt(String(totalWon))}</div>
-          <div className="text-xs text-gray-400">{initial.filter(d => d.status === 'won').length} deals</div>
+          <div className="text-xs text-gray-400">{initial.filter(d => d.status === 'won').length} propostas</div>
         </div>
         <div className="bg-white rounded-xl border p-3">
           <div className="text-xs text-gray-500">Perdidos</div>
           <div className="text-lg font-bold text-red-500">
-            {initial.filter(d => d.status === 'lost').length} deals
+            {initial.filter(d => d.status === 'lost').length} propostas
           </div>
         </div>
       </div>
@@ -353,7 +353,7 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
       ) : (
         <div className="space-y-2">
           {initial.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">Nenhum deal ainda.</div>
+            <div className="text-center py-12 text-gray-400 text-sm">Nenhuma proposta ainda.</div>
           ) : initial.map(deal => (
             <div key={deal.id} className="bg-white rounded-xl border px-4 py-3 flex items-center gap-4 hover:shadow-sm">
               <div className="flex-1 min-w-0">
@@ -448,7 +448,7 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
       {deleting && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <h3 className="font-bold text-[#1A1A2E] mb-2">Excluir deal?</h3>
+            <h3 className="font-bold text-[#1A1A2E] mb-2">Excluir proposta?</h3>
             <p className="text-sm text-gray-600 mb-5"><strong>{deleting.title}</strong> será removido permanentemente.</p>
             <div className="flex gap-2">
               <button onClick={() => setDeleting(null)}

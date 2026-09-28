@@ -27,7 +27,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/crm', label: 'CRM', icon: Users },
   { href: '/leads', label: 'Leads', icon: UserPlus },
-  { href: '/deals', label: 'Deals', icon: Handshake },
+  { href: '/deals', label: 'Propostas', icon: Handshake },
   { href: '/activities', label: 'Atividades', icon: Activity },
   { href: '/products', label: 'Produtos', icon: Package },
   { href: '/accounts', label: 'Empresas', icon: Briefcase },

@@ -117,7 +117,7 @@ export async function getNotifications(organizationId: string): Promise<Notifica
       notifications.push({
         id: 'stalled-deals',
         type: 'stalled',
-        title: `${stalledDeals.length} deal${stalledDeals.length > 1 ? 's' : ''} parado${stalledDeals.length > 1 ? 's' : ''} há 30+ dias`,
+        title: `${stalledDeals.length} proposta${stalledDeals.length > 1 ? 's' : ''} parada${stalledDeals.length > 1 ? 's' : ''} há 30+ dias`,
         description: stalledDeals.slice(0, 2).map(d => d.title).join(', ') + (stalledDeals.length > 2 ? '...' : ''),
         href: '/deals',
       })

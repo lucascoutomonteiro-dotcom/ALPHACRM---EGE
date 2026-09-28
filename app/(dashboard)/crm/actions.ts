@@ -2,8 +2,9 @@
 
 import { db } from '@/lib/db'
 import { contatos, interacoes, crmEventos, metas } from '@/lib/schema'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { requireAuth } from '@/lib/session'
 import { STATUS_SEM_CONTAGEM } from '@/lib/constants'
 
 // Incrementa contador em metas — ignora duplicata (unique constraint em crm_eventos)
@@ -185,4 +186,19 @@ export async function toggleUrgente(id: string, urgente: boolean) {
 export async function deletarContato(id: string) {
   await db.delete(contatos).where(eq(contatos.id, id))
   revalidatePath('/crm')
+}
+
+export async function buscarInteracoesContato(contatoId: string) {
+  await requireAuth()
+  return db.select({
+    id: interacoes.id,
+    tipo: interacoes.tipo,
+    descricao: interacoes.descricao,
+    proximoPasso: interacoes.proximoPasso,
+    dataProximoPasso: interacoes.dataProximoPasso,
+    dataInteracao: interacoes.dataInteracao,
+  }).from(interacoes)
+    .where(eq(interacoes.contatoId, contatoId))
+    .orderBy(desc(interacoes.dataInteracao))
+    .limit(10)
 }

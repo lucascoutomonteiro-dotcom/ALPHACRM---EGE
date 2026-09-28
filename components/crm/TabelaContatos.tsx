@@ -6,7 +6,7 @@ import { useReactTable, getCoreRowModel, getFilteredRowModel, flexRender, Column
 import { useRouter } from 'next/navigation'
 import { StatusBadge } from './StatusBadge'
 import { FormContato } from './FormContato'
-import { FormInteracao } from './FormInteracao'
+import { PainelInteracao } from './PainelInteracao'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -399,16 +399,9 @@ export function TabelaContatos({ contatos: initialContatos, userId, colunas, ege
           <button onClick={() => { setEditContato(row.original); setFormOpen(true) }} className="p-1 hover:bg-gray-100 rounded" title="Editar">
             <Edit className="h-3.5 w-3.5 text-gray-400" />
           </button>
-          <div className="relative group">
-            <button onClick={() => setInteracaoContato(row.original)} className="p-1 hover:bg-gray-100 rounded" title="Registrar interação">
-              <MessageSquare className="h-3.5 w-3.5 text-gray-400" />
-            </button>
-            {row.original.historico && (
-              <div className="absolute bottom-7 right-0 z-50 bg-gray-900 text-white text-xs rounded-lg p-2.5 w-64 shadow-xl whitespace-pre-wrap max-h-40 overflow-y-auto hidden group-hover:block">
-                {row.original.historico}
-              </div>
-            )}
-          </div>
+          <button onClick={() => setInteracaoContato(row.original)} className="p-1 hover:bg-gray-100 rounded" title="Registrar interação">
+            <MessageSquare className="h-3.5 w-3.5 text-gray-400" />
+          </button>
         </div>
       ),
     },
@@ -574,16 +567,9 @@ export function TabelaContatos({ contatos: initialContatos, userId, colunas, ege
                             <button onClick={() => { setEditContato(c); setFormOpen(true) }} className="p-0.5 hover:bg-gray-100 rounded">
                               <Edit className="h-3 w-3 text-gray-400" />
                             </button>
-                            <div className="relative group/tip">
-                              <button onClick={() => setInteracaoContato(c)} className="p-0.5 hover:bg-gray-100 rounded">
-                                <MessageSquare className="h-3 w-3 text-gray-400" />
-                              </button>
-                              {c.historico && (
-                                <div className="absolute bottom-6 right-0 z-50 bg-gray-900 text-white text-xs rounded-lg p-2.5 w-60 shadow-xl whitespace-pre-wrap max-h-36 overflow-y-auto hidden group-hover/tip:block">
-                                  {c.historico}
-                                </div>
-                              )}
-                            </div>
+                            <button onClick={() => setInteracaoContato(c)} className="p-0.5 hover:bg-gray-100 rounded" title="Registrar interação">
+                              <MessageSquare className="h-3 w-3 text-gray-400" />
+                            </button>
                             <button onClick={() => setDeletandoId(c.id)} className="p-0.5 hover:bg-red-50 rounded">
                               <Trash2 className="h-3 w-3 text-red-300 hover:text-red-500" />
                             </button>
@@ -779,11 +765,10 @@ export function TabelaContatos({ contatos: initialContatos, userId, colunas, ege
       )}
       <FormContato key={editContato?.id ?? 'novo'} open={formOpen} onClose={() => { setFormOpen(false); router.refresh() }} contato={editContato} statusOpcoes={colunas.map((c) => c.nome)} />
       {interacaoContato && (
-        <FormInteracao
-          open={!!interacaoContato}
-          onClose={() => setInteracaoContato(null)}
-          contatoId={interacaoContato.id}
+        <PainelInteracao
+          contato={interacaoContato}
           userId={userId}
+          onClose={() => setInteracaoContato(null)}
         />
       )}
     </div>

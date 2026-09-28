@@ -118,7 +118,7 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
     .orderBy(desc(deals.createdAt))
 
   // Stages da organização (mapa id → nome)
-  const allStages = await db.select({ id: stages.id, name: stages.name }).from(stages)
+  const allStages = await db.select({ id: stages.id, name: stages.name, pipelineId: stages.pipelineId }).from(stages)
   const stageMap = Object.fromEntries(allStages.map(s => [s.id, s.name]))
 
   // Produtos de cada deal — sequencial para compatibilidade com Neon HTTP
@@ -179,7 +179,7 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
         <CustomFieldsPanel campos={camposComValor} entityType="contato" entityId={id} />
       )}
 
-      <DealsSection deals={dealsEnriquecidos} contatoId={id} />
+      <DealsSection deals={dealsEnriquecidos} contatoId={id} stages={allStages} />
 
       <div className="bg-white rounded-xl border p-6">
         <h2 className="font-semibold mb-4 text-sm">Linha do Tempo</h2>
