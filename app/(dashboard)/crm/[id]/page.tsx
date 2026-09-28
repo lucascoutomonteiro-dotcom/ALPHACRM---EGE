@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { contatos, interacoes, timelineEvents, customFields, customFieldValues } from '@/lib/schema'
+import { contatos, interacoes, timelineEvents, customFields, customFieldValues, deals, stages, dealProducts, products } from '@/lib/schema'
 import { eq, desc, and } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { auth } from '@/auth'
@@ -7,8 +7,7 @@ import { requireAuth } from '@/lib/session'
 import { StatusBadge } from '@/components/crm/StatusBadge'
 import { DetalheContatoClient } from './DetalheContatoClient'
 import { CustomFieldsPanel } from '@/components/shared/CustomFieldsPanel'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { DealsSection } from './DealsSection'
 import { Phone, Mail, MapPin } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -101,6 +100,46 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
     value: valoresContato.find(v => v.fieldId === c.id)?.value ?? null,
   }))
 
+  // Deals vinculados ao contato
+  const dealsDoContato = await db.select({
+    id: deals.id,
+    title: deals.title,
+    value: deals.value,
+    status: deals.status,
+    probability: deals.probability,
+    expectedCloseDate: deals.expectedCloseDate,
+    lossReason: deals.lossReason,
+    description: deals.description,
+    stageId: deals.stageId,
+    createdAt: deals.createdAt,
+    updatedAt: deals.updatedAt,
+  }).from(deals)
+    .where(eq(deals.contatoId, id))
+    .orderBy(desc(deals.createdAt))
+
+  // Stages da organização (mapa id → nome)
+  const allStages = await db.select({ id: stages.id, name: stages.name }).from(stages)
+  const stageMap = Object.fromEntries(allStages.map(s => [s.id, s.name]))
+
+  // Produtos de cada deal — sequencial para compatibilidade com Neon HTTP
+  const dealComProdutos: Record<string, { productName: string | null; quantity: string | null; unitPrice: string | null }[]> = {}
+  for (const deal of dealsDoContato) {
+    const prods = await db.select({
+      productName: products.name,
+      quantity: dealProducts.quantity,
+      unitPrice: dealProducts.unitPrice,
+    }).from(dealProducts)
+      .where(eq(dealProducts.dealId, deal.id))
+      .leftJoin(products, eq(dealProducts.productId, products.id))
+    dealComProdutos[deal.id] = prods
+  }
+
+  const dealsEnriquecidos = dealsDoContato.map(d => ({
+    ...d,
+    stageName: d.stageId ? (stageMap[d.stageId] ?? null) : null,
+    produtos: dealComProdutos[d.id] ?? [],
+  }))
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="bg-white rounded-xl border p-6">
@@ -139,6 +178,8 @@ export default async function DetalheContatoPage({ params }: { params: Promise<{
       {camposComValor.length > 0 && (
         <CustomFieldsPanel campos={camposComValor} entityType="contato" entityId={id} />
       )}
+
+      <DealsSection deals={dealsEnriquecidos} contatoId={id} />
 
       <div className="bg-white rounded-xl border p-6">
         <h2 className="font-semibold mb-4 text-sm">Linha do Tempo</h2>
