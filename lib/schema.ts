@@ -461,11 +461,23 @@ export const deals = pgTable('deals', {
   accountId: uuid('account_id'),
   responsavelId: uuid('responsavel_id').references(() => users.id),
   status: text('status').default('open'), // open | won | lost
+  temperatura: text('temperatura').default('morno'), // quente|morno|fria or custom column id
   expectedCloseDate: date('expected_close_date'),
   lossReason: text('loss_reason'),
   description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
   updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`now()`),
+})
+
+export const dealColunas = pgTable('deal_colunas', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  nome: text('nome').notNull(),
+  cor: text('cor').notNull().default('#9CA3AF'),
+  ordem: integer('ordem').notNull().default(0),
+  sistema: boolean('sistema').default(false),
+  slug: text('slug'), // quente|morno|fria|perdida|ganho for sistema columns
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
 })
 
 // ──────────────────────────────────────────────

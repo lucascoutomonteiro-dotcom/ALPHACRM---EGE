@@ -118,7 +118,7 @@ export function GraficoConversao({ itens, hoje }: { itens: ConversaoItem[]; hoje
                 onClick={() => setFonte(f)}
                 className={`px-2 py-1 text-xs font-medium transition-colors ${fonte === f ? 'bg-[#1B4F8A] text-white' : 'text-gray-500 hover:bg-gray-50'}`}
               >
-                {f === 'todos' ? 'Todos' : f === 'crm' ? 'CRM' : 'Oport.'}
+                {f === 'todos' ? 'Todos' : f === 'crm' ? 'CRM' : 'Base'}
               </button>
             ))}
           </div>
@@ -249,7 +249,7 @@ export function GraficoConversao({ itens, hoje }: { itens: ConversaoItem[]; hoje
                     <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                       item.fonte === 'crm' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
                     }`}>
-                      {item.fonte === 'crm' ? 'CRM' : 'Oport.'}
+                      {item.fonte === 'crm' ? 'CRM' : 'Base'}
                     </span>
                   </>
                 )

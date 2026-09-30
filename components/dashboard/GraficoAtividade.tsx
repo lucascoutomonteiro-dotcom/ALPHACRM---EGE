@@ -47,7 +47,7 @@ function CustomTooltip({ active, payload }: {
           <span className="font-semibold text-gray-800">{d.crm}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-gray-500">Oportunidades</span>
+          <span className="text-gray-500">Base de Clientes</span>
           <span className="font-semibold text-gray-800">{d.ege}</span>
         </div>
         <div className="flex justify-between gap-4 border-t pt-1 mt-1">
@@ -133,7 +133,7 @@ export function GraficoAtividade({ itens, hoje }: { itens: AtividadeItem[]; hoje
                 onClick={() => setFonte(f)}
                 className={`px-2 py-1 text-xs font-medium transition-colors ${fonte === f ? 'bg-[#1B4F8A] text-white' : 'text-gray-500 hover:bg-gray-50'}`}
               >
-                {f === 'todos' ? 'Todos' : f === 'crm' ? 'CRM' : 'Oport.'}
+                {f === 'todos' ? 'Todos' : f === 'crm' ? 'CRM' : 'Base'}
               </button>
             ))}
           </div>
@@ -193,7 +193,7 @@ export function GraficoAtividade({ itens, hoje }: { itens: AtividadeItem[]; hoje
                 ))}
                 <LabelList dataKey="crm" position="insideTop" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => Number(v) > 0 ? String(v) : ''} />
               </Bar>
-              <Bar dataKey="ege" name="Oportunidades" radius={[3, 3, 0, 0]} maxBarSize={32}>
+              <Bar dataKey="ege" name="Base de Clientes" radius={[3, 3, 0, 0]} maxBarSize={32}>
                 {chartData.map((entry) => (
                   <Cell key={`ege-${entry.tipo}`} fill={TIPOS_COR[entry.tipo] ?? '#9CA3AF'} fillOpacity={0.45} />
                 ))}
@@ -210,7 +210,7 @@ export function GraficoAtividade({ itens, hoje }: { itens: AtividadeItem[]; hoje
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#0891B2] inline-block" /> Proposta</span>
             <span className="ml-auto flex items-center gap-3">
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gray-400 inline-block" /> CRM (cheio)</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gray-400 opacity-50 inline-block" /> Oportunidades (claro)</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gray-400 opacity-50 inline-block" /> Base de Clientes (claro)</span>
             </span>
           </div>
         </>

@@ -47,7 +47,7 @@ export function FollowupItem({ id, nome, empresa, telefone, email, status, histo
       >
         <div className="flex items-center gap-1.5 truncate max-w-[60%]">
           {fonte === 'ege' && (
-            <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#1B4F8A] text-white tracking-wide">EGE</span>
+            <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#1B4F8A] text-white tracking-wide">Base</span>
           )}
           <Link href={fonte === 'ege' ? `/oportunidades?cliente=${id}` : `/crm/${id}`} className="text-[#1B4F8A] hover:underline font-medium truncate">
             {nome || '—'}

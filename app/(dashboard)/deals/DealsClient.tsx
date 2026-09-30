@@ -1,25 +1,24 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { criarDeal, editarDeal, excluirDeal, moverDealStage, fecharDeal, type DealInput } from './actions'
-import { Plus, Edit2, Trash2, X, Trophy, XCircle, DollarSign, Calendar, ChevronRight, LayoutGrid, List } from 'lucide-react'
+import { criarDeal, editarDeal, excluirDeal, fecharDeal, type DealInput } from './actions'
+import { atualizarTemperatura } from './colunas-actions'
+import { GerenciarColunasDeal } from '@/components/deals/GerenciarColunasDeal'
+import { Plus, Edit2, Trash2, X, Trophy, XCircle, DollarSign, Calendar, ChevronRight, LayoutGrid, List, Flame } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-type Stage = { id: string; name: string; order: number; color: string | null; isWon: boolean | null; isLost: boolean | null; probability: number | null }
-type Pipeline = { id: string; name: string }
+type DealColuna = { id: string; nome: string; cor: string; ordem: number; sistema: boolean | null; slug: string | null }
 type Contato = { id: string; nome: string | null }
 type Deal = {
   id: string
   title: string
   value: string | null
   probability: number | null
-  pipelineId: string | null
-  stageId: string | null
   contatoId: string | null
-  accountId: string | null
-  responsavelId: string | null
   status: string | null
+  temperatura: string | null
   expectedCloseDate: string | null
+  lossReason: string | null
   description: string | null
   createdAt: Date | string | null
 }
@@ -29,45 +28,38 @@ const STATUS_STYLE: Record<string, string> = {
   won: 'bg-green-100 text-green-700',
   lost: 'bg-red-100 text-red-600',
 }
-
 const STATUS_LABEL: Record<string, string> = { open: 'Aberto', won: 'Ganho', lost: 'Perdido' }
+
+const MOTIVOS_PERDA = ['Preço', 'Escopo', 'Prazo', 'Outros']
 
 function fmt(value: string | null) {
   if (!value) return '—'
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))
 }
 
-function DealForm({ deal, pipelines, stages, contatos, onClose }: {
+// ─── DealForm (simplificado — sem pipeline/stage) ─────────────────────────────
+function DealForm({ deal, contatos, onClose }: {
   deal?: Deal
-  pipelines: Pipeline[]
-  stages: Stage[]
   contatos: Contato[]
   onClose: () => void
 }) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
-  const [selectedPipeline, setSelectedPipeline] = useState(deal?.pipelineId ?? pipelines[0]?.id ?? '')
   const [form, setForm] = useState<DealInput>({
     title: deal?.title ?? '',
     value: deal?.value ? Number(deal.value) : null,
     probability: deal?.probability ?? 0,
-    pipelineId: deal?.pipelineId ?? pipelines[0]?.id ?? null,
-    stageId: deal?.stageId ?? null,
     contatoId: deal?.contatoId ?? null,
     expectedCloseDate: deal?.expectedCloseDate ?? null,
     description: deal?.description ?? null,
   })
-
-  const filteredStages = stages.filter(s => s.id === s.id && (!selectedPipeline || true))
-    .sort((a, b) => a.order - b.order)
-
   const set = (k: keyof DealInput, v: string | number | null) => setForm(f => ({ ...f, [k]: v }))
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
-      if (deal) await editarDeal(deal.id, { ...form, pipelineId: selectedPipeline })
-      else await criarDeal({ ...form, pipelineId: selectedPipeline })
+      if (deal) await editarDeal(deal.id, form)
+      else await criarDeal(form)
       onClose()
       router.refresh()
     })
@@ -81,12 +73,12 @@ function DealForm({ deal, pipelines, stages, contatos, onClose }: {
           <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-600">Título *</label>
+            <input required value={form.title} onChange={e => set('title', e.target.value)}
+              className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600">Título *</label>
-              <input required value={form.title} onChange={e => set('title', e.target.value)}
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30" />
-            </div>
             <div>
               <label className="text-xs font-medium text-gray-600">Valor (R$)</label>
               <input type="number" min={0} step={0.01} value={form.value ?? ''}
@@ -99,46 +91,27 @@ function DealForm({ deal, pipelines, stages, contatos, onClose }: {
                 onChange={e => set('probability', Number(e.target.value))}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30" />
             </div>
-            {pipelines.length > 0 && (
-              <div>
-                <label className="text-xs font-medium text-gray-600">Pipeline</label>
-                <select value={selectedPipeline} onChange={e => { setSelectedPipeline(e.target.value); set('stageId', null) }}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30">
-                  {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-            )}
-            {filteredStages.length > 0 && (
-              <div>
-                <label className="text-xs font-medium text-gray-600">Etapa</label>
-                <select value={form.stageId ?? ''} onChange={e => set('stageId', e.target.value || null)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30">
-                  <option value="">—</option>
-                  {filteredStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            )}
-            {contatos.length > 0 && (
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-gray-600">Contato</label>
-                <select value={form.contatoId ?? ''} onChange={e => set('contatoId', e.target.value || null)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30">
-                  <option value="">—</option>
-                  {contatos.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-            )}
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600">Previsão de fechamento</label>
-              <input type="date" value={form.expectedCloseDate ?? ''}
-                onChange={e => set('expectedCloseDate', e.target.value || null)}
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30" />
+          </div>
+          {contatos.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-gray-600">Contato</label>
+              <select value={form.contatoId ?? ''} onChange={e => set('contatoId', e.target.value || null)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30">
+                <option value="">—</option>
+                {contatos.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
             </div>
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600">Descrição</label>
-              <textarea rows={2} value={form.description ?? ''} onChange={e => set('description', e.target.value || null)}
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30 resize-none" />
-            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-gray-600">Previsão de fechamento</label>
+            <input type="date" value={form.expectedCloseDate ?? ''}
+              onChange={e => set('expectedCloseDate', e.target.value || null)}
+              className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">Descrição</label>
+            <textarea rows={2} value={form.description ?? ''} onChange={e => set('description', e.target.value || null)}
+              className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4F8A]/30 resize-none" />
           </div>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
@@ -154,94 +127,141 @@ function DealForm({ deal, pipelines, stages, contatos, onClose }: {
   )
 }
 
-function KanbanBoard({ deals, stages, stageMap, onEdit, onDelete, onClose: onCloseStage }: {
+// ─── TemperaturaKanban ─────────────────────────────────────────────────────────
+function TemperaturaKanban({ deals, colunas, onEdit, onDelete, onPerdida, onGanho, onReabrir }: {
   deals: Deal[]
-  stages: Stage[]
-  stageMap: Map<string, Stage>
+  colunas: DealColuna[]
   onEdit: (d: Deal) => void
   onDelete: (d: Deal) => void
-  onClose: (d: Deal, won: boolean) => void
+  onPerdida: (d: Deal) => void
+  onGanho: (d: Deal) => void
+  onReabrir: (d: Deal, paraSlug: string) => void
 }) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [dragging, setDragging] = useState<string | null>(null)
 
-  const openDeals = deals.filter(d => d.status === 'open')
+  function getDealColuna(deal: Deal, col: DealColuna): boolean {
+    if (col.slug === 'perdida') return deal.status === 'lost'
+    if (col.slug === 'ganho')   return deal.status === 'won'
+    if (deal.status !== 'open') return false
+    // temperatura matches slug (sistema) or column id (custom)
+    const temp = deal.temperatura ?? 'morno'
+    return temp === (col.slug ?? col.id)
+  }
 
-  function onDrop(stageId: string) {
-    if (!dragging || dragging === stageId) return
+  function onDrop(coluna: DealColuna) {
+    if (!dragging) return
+    const deal = deals.find(d => d.id === dragging)
+    if (!deal) return
+    setDragging(null)
+
+    if (coluna.slug === 'perdida') {
+      if (deal.status === 'won') { onReabrir(deal, 'perdida'); return }
+      if (deal.status !== 'lost') { onPerdida(deal); return }
+      return
+    }
+    if (coluna.slug === 'ganho') {
+      if (deal.status === 'lost') { onReabrir(deal, 'ganho'); return }
+      if (deal.status !== 'won') { onGanho(deal); return }
+      return
+    }
+    // Moving to open column
+    const newTemp = coluna.slug ?? coluna.id
+    if (deal.status === 'open' && deal.temperatura === newTemp) return
     startTransition(async () => {
-      await moverDealStage(dragging, stageId)
-      setDragging(null)
+      await atualizarTemperatura(deal.id, newTemp)
       router.refresh()
     })
   }
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-4">
-      {stages.filter(s => !s.isLost).map(stage => {
-        const stageDeals = openDeals.filter(d => d.stageId === stage.id)
-        const total = stageDeals.reduce((sum, d) => sum + (d.value ? Number(d.value) : 0), 0)
+      {colunas.map(col => {
+        const colDeals = deals.filter(d => getDealColuna(d, col))
+        const total = colDeals.reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
+        const isPerdida = col.slug === 'perdida'
+        const isGanho = col.slug === 'ganho'
+
         return (
-          <div key={stage.id}
+          <div key={col.id}
             className="flex-shrink-0 w-64 bg-gray-50 rounded-xl p-3"
             onDragOver={e => e.preventDefault()}
-            onDrop={() => onDrop(stage.id)}>
+            onDrop={() => onDrop(col)}>
+            {/* Column header */}
             <div className="flex items-center gap-2 mb-3">
-              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color ?? '#9CA3AF' }} />
-              <span className="text-xs font-semibold text-gray-700 flex-1">{stage.name}</span>
-              <span className="text-xs text-gray-400">{stageDeals.length}</span>
+              <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
+              <span className="text-xs font-semibold text-gray-700 flex-1 truncate">{col.nome}</span>
+              <span className="text-xs text-gray-400 shrink-0">{colDeals.length}</span>
             </div>
             {total > 0 && (
-              <div className="text-xs text-gray-500 mb-2">{fmt(String(total))}</div>
+              <div className="text-xs font-medium text-gray-500 mb-2">{fmt(String(total))}</div>
             )}
+
+            {/* Cards */}
             <div className="space-y-2">
-              {stageDeals.map(deal => (
-                <div key={deal.id}
-                  draggable
-                  onDragStart={() => setDragging(deal.id)}
-                  onDragEnd={() => setDragging(null)}
-                  className={`bg-white rounded-lg border p-3 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow ${dragging === deal.id ? 'opacity-50' : ''}`}>
-                  <div className="font-medium text-xs text-[#1A1A2E] mb-1">{deal.title}</div>
-                  {deal.value && (
-                    <div className="text-xs font-semibold text-[#1B4F8A] flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />{fmt(deal.value)}
-                    </div>
-                  )}
-                  {deal.expectedCloseDate && (
-                    <div className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(deal.expectedCloseDate).toLocaleDateString('pt-BR')}
-                    </div>
-                  )}
-                  {deal.probability != null && deal.probability > 0 && (
-                    <div className="mt-2">
-                      <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#1B4F8A] rounded-full" style={{ width: `${deal.probability}%` }} />
+              {colDeals.map(deal => {
+                const isOverdue = deal.status === 'open' && deal.expectedCloseDate && deal.expectedCloseDate < new Date().toISOString().slice(0, 10)
+                return (
+                  <div key={deal.id}
+                    draggable={!isPerdida && !isGanho}
+                    onDragStart={() => !isPerdida && !isGanho && setDragging(deal.id)}
+                    onDragEnd={() => setDragging(null)}
+                    className={`bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow ${
+                      dragging === deal.id ? 'opacity-40' : ''
+                    } ${isOverdue ? 'border-orange-200' : ''} ${
+                      isPerdida || isGanho ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
+                    }`}>
+                    <div className="font-medium text-xs text-[#1A1A2E] mb-1 leading-snug">{deal.title}</div>
+                    {deal.value && (
+                      <div className="text-xs font-semibold text-[#1B4F8A] flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />{fmt(deal.value)}
                       </div>
-                      <div className="text-xs text-gray-400 mt-0.5">{deal.probability}%</div>
+                    )}
+                    {deal.expectedCloseDate && (
+                      <div className={`text-xs flex items-center gap-1 mt-0.5 ${isOverdue ? 'text-orange-500' : 'text-gray-400'}`}>
+                        <Calendar className="h-3 w-3" />
+                        {new Date(deal.expectedCloseDate).toLocaleDateString('pt-BR')}
+                        {isOverdue && <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded">atrasado</span>}
+                      </div>
+                    )}
+                    {deal.probability != null && deal.probability > 0 && deal.status === 'open' && (
+                      <div className="mt-1.5">
+                        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#1B4F8A] rounded-full" style={{ width: `${deal.probability}%` }} />
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{deal.probability}%</div>
+                      </div>
+                    )}
+                    {isPerdida && deal.lossReason && (
+                      <p className="text-[10px] text-red-400 mt-1 italic">{deal.lossReason}</p>
+                    )}
+                    <div className="flex gap-1 mt-2 pt-2 border-t">
+                      {deal.status === 'open' && (
+                        <>
+                          <button onClick={() => onGanho(deal)} className="p-1 text-green-500 hover:text-green-700 hover:bg-green-50 rounded" title="Ganho">
+                            <Trophy className="h-3 w-3" />
+                          </button>
+                          <button onClick={() => onPerdida(deal)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Perdido">
+                            <XCircle className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
+                      {(isPerdida || isGanho) && (
+                        <button onClick={() => onReabrir(deal, 'morno')} className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded text-[10px]" title="Reabrir">
+                          ↩
+                        </button>
+                      )}
+                      <button onClick={() => onEdit(deal)} className="p-1 text-gray-400 hover:text-[#1B4F8A] hover:bg-blue-50 rounded">
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => onDelete(deal)} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
-                  )}
-                  <div className="flex gap-1 mt-2 pt-2 border-t">
-                    <button onClick={() => onCloseStage(deal, true)}
-                      className="p-1 text-green-500 hover:text-green-700 hover:bg-green-50 rounded" title="Marcar como Ganho">
-                      <Trophy className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => onCloseStage(deal, false)}
-                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Marcar como Perdido">
-                      <XCircle className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => onEdit(deal)}
-                      className="p-1 text-gray-400 hover:text-[#1B4F8A] hover:bg-blue-50 rounded">
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                    <button onClick={() => onDelete(deal)}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )
@@ -250,10 +270,60 @@ function KanbanBoard({ deals, stages, stageMap, onEdit, onDelete, onClose: onClo
   )
 }
 
-export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
+// ─── Modal motivo de perda ─────────────────────────────────────────────────────
+function ModalPerdida({ deal, onConfirm, onCancel, pending }: {
+  deal: Deal
+  onConfirm: (motivo: string) => void
+  onCancel: () => void
+  pending: boolean
+}) {
+  const [motivo, setMotivo] = useState(MOTIVOS_PERDA[0])
+  const [outro, setOutro] = useState('')
+
+  const motivoFinal = motivo === 'Outros' ? (outro.trim() || 'Outros') : motivo
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+        <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center mb-4">
+          <XCircle className="h-5 w-5 text-red-500" />
+        </div>
+        <h3 className="font-bold text-[#1A1A2E] mb-1">Marcar como Perdido</h3>
+        <p className="text-sm text-gray-500 mb-4"><strong>{deal.title}</strong></p>
+
+        <div className="mb-4 space-y-2">
+          <p className="text-xs font-medium text-gray-600">Motivo da perda</p>
+          {MOTIVOS_PERDA.map(m => (
+            <label key={m} className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="motivo" value={m} checked={motivo === m} onChange={() => setMotivo(m)}
+                className="accent-[#1B4F8A]" />
+              <span className="text-sm text-gray-700">{m}</span>
+            </label>
+          ))}
+          {motivo === 'Outros' && (
+            <input value={outro} onChange={e => setOutro(e.target.value)}
+              placeholder="Descreva o motivo..."
+              className="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-red-200" />
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={onCancel}
+            className="flex-1 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button onClick={() => onConfirm(motivoFinal)} disabled={pending}
+            className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:opacity-50">
+            {pending ? 'Salvando...' : 'Confirmar perda'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── DealsClient ───────────────────────────────────────────────────────────────
+export function DealsClient({ deals: initial, colunas, contatos }: {
   deals: Deal[]
-  pipelines: Pipeline[]
-  stages: Stage[]
+  colunas: DealColuna[]
   contatos: Contato[]
 }) {
   const router = useRouter()
@@ -261,14 +331,37 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Deal | null>(null)
   const [deleting, setDeleting] = useState<Deal | null>(null)
-  const [closing, setClosing] = useState<{ deal: Deal; won: boolean } | null>(null)
-  const [lossReason, setLossReason] = useState('')
+  const [perdidaDeal, setPerdidaDeal] = useState<Deal | null>(null)
+  const [ganhandoDeal, setGanhandoDeal] = useState<Deal | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const stageMap = new Map(stages.map(s => [s.id, s]))
-
   const totalOpen = initial.filter(d => d.status === 'open').reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
-  const totalWon = initial.filter(d => d.status === 'won').reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
+  const totalWon  = initial.filter(d => d.status === 'won').reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
+
+  function handlePerdida(motivo: string) {
+    if (!perdidaDeal) return
+    startTransition(async () => {
+      await fecharDeal(perdidaDeal.id, false, motivo)
+      setPerdidaDeal(null)
+      router.refresh()
+    })
+  }
+
+  function handleGanho() {
+    if (!ganhandoDeal) return
+    startTransition(async () => {
+      await fecharDeal(ganhandoDeal.id, true)
+      setGanhandoDeal(null)
+      router.refresh()
+    })
+  }
+
+  function handleReabrir(deal: Deal, paraSlug: string) {
+    startTransition(async () => {
+      await atualizarTemperatura(deal.id, paraSlug === 'perdida' ? 'morno' : paraSlug === 'ganho' ? 'morno' : paraSlug)
+      router.refresh()
+    })
+  }
 
   function doDelete(deal: Deal) {
     startTransition(async () => {
@@ -278,25 +371,23 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
     })
   }
 
-  function doClose() {
-    if (!closing) return
-    startTransition(async () => {
-      await fecharDeal(closing.deal.id, closing.won, lossReason)
-      setClosing(null)
-      setLossReason('')
-      router.refresh()
-    })
-  }
+  // Temperatura label for list view
+  const tempLabel: Record<string, { label: string; style: string }> = {}
+  colunas.forEach(c => {
+    const key = c.slug ?? c.id
+    tempLabel[key] = { label: c.nome, style: '' }
+  })
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-[#1B4F8A]">Propostas</h1>
           <p className="text-sm text-gray-500">{initial.length} proposta{initial.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <GerenciarColunasDeal colunas={colunas} />
           <div className="flex border rounded-lg overflow-hidden">
             <button onClick={() => setView('kanban')}
               className={`p-2 ${view === 'kanban' ? 'bg-[#1B4F8A] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
@@ -336,69 +427,71 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
 
       {/* Kanban ou Lista */}
       {view === 'kanban' ? (
-        stages.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-sm">
-            Nenhum pipeline configurado. Crie um em <strong>Admin → Pipelines</strong>.
-          </div>
-        ) : (
-          <KanbanBoard
-            deals={initial}
-            stages={stages}
-            stageMap={stageMap}
-            onEdit={setEditing}
-            onDelete={setDeleting}
-            onClose={(deal, won) => { setClosing({ deal, won }); setLossReason('') }}
-          />
-        )
+        <TemperaturaKanban
+          deals={initial}
+          colunas={colunas}
+          onEdit={setEditing}
+          onDelete={setDeleting}
+          onPerdida={d => setPerdidaDeal(d)}
+          onGanho={d => setGanhandoDeal(d)}
+          onReabrir={handleReabrir}
+        />
       ) : (
         <div className="space-y-2">
           {initial.length === 0 ? (
             <div className="text-center py-12 text-gray-400 text-sm">Nenhuma proposta ainda.</div>
-          ) : initial.map(deal => (
-            <div key={deal.id} className="bg-white rounded-xl border px-4 py-3 flex items-center gap-4 hover:shadow-sm">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm text-[#1A1A2E]">{deal.title}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[deal.status ?? 'open'] ?? ''}`}>
-                    {STATUS_LABEL[deal.status ?? 'open']}
-                  </span>
-                  {deal.stageId && stageMap.get(deal.stageId) && (
-                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                      <ChevronRight className="h-3 w-3" />{stageMap.get(deal.stageId)?.name}
+          ) : initial.map(deal => {
+            const tempKey = deal.temperatura ?? 'morno'
+            const tempInfo = tempLabel[tempKey]
+            const col = colunas.find(c => (c.slug ?? c.id) === tempKey)
+            return (
+              <div key={deal.id} className="bg-white rounded-xl border px-4 py-3 flex items-center gap-4 hover:shadow-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-[#1A1A2E]">{deal.title}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[deal.status ?? 'open'] ?? ''}`}>
+                      {STATUS_LABEL[deal.status ?? 'open']}
                     </span>
-                  )}
+                    {deal.status === 'open' && col && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium text-white"
+                        style={{ backgroundColor: col.cor }}>
+                        {col.nome}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-3 mt-1 text-xs text-gray-500 flex-wrap">
+                    {deal.value && <span className="font-medium text-[#1B4F8A]">{fmt(deal.value)}</span>}
+                    {deal.probability != null && deal.probability > 0 && <span>{deal.probability}%</span>}
+                    {deal.expectedCloseDate && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(deal.expectedCloseDate).toLocaleDateString('pt-BR')}
+                      </span>
+                    )}
+                    {deal.lossReason && <span className="text-red-400 italic">{deal.lossReason}</span>}
+                  </div>
                 </div>
-                <div className="flex gap-3 mt-1 text-xs text-gray-500 flex-wrap">
-                  {deal.value && <span className="font-medium text-[#1B4F8A]">{fmt(deal.value)}</span>}
-                  {deal.probability != null && deal.probability > 0 && <span>{deal.probability}%</span>}
-                  {deal.expectedCloseDate && (
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(deal.expectedCloseDate).toLocaleDateString('pt-BR')}
-                    </span>
-                  )}
+                <div className="flex gap-1 shrink-0">
+                  {deal.status === 'open' && (<>
+                    <button onClick={() => setGanhandoDeal(deal)}
+                      className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg" title="Ganho">
+                      <Trophy className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => setPerdidaDeal(deal)}
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Perdido">
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  </>)}
+                  <button onClick={() => setEditing(deal)} className="p-1.5 text-gray-400 hover:text-[#1B4F8A] hover:bg-blue-50 rounded-lg">
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setDeleting(deal)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                {deal.status === 'open' && (<>
-                  <button onClick={() => { setClosing({ deal, won: true }); setLossReason('') }}
-                    className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg" title="Ganho">
-                    <Trophy className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => { setClosing({ deal, won: false }); setLossReason('') }}
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Perdido">
-                    <XCircle className="h-4 w-4" />
-                  </button>
-                </>)}
-                <button onClick={() => setEditing(deal)} className="p-1.5 text-gray-400 hover:text-[#1B4F8A] hover:bg-blue-50 rounded-lg">
-                  <Edit2 className="h-4 w-4" />
-                </button>
-                <button onClick={() => setDeleting(deal)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -406,50 +499,48 @@ export function DealsClient({ deals: initial, pipelines, stages, contatos }: {
       {(showForm || editing) && (
         <DealForm
           deal={editing ?? undefined}
-          pipelines={pipelines}
-          stages={stages}
           contatos={contatos}
           onClose={() => { setShowForm(false); setEditing(null) }}
         />
       )}
 
-      {/* Confirmar fechar deal */}
-      {closing && (
+      {/* Modal — Marcar como Perdido */}
+      {perdidaDeal && (
+        <ModalPerdida
+          deal={perdidaDeal}
+          onConfirm={handlePerdida}
+          onCancel={() => setPerdidaDeal(null)}
+          pending={pending}
+        />
+      )}
+
+      {/* Modal — Marcar como Ganho */}
+      {ganhandoDeal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-4 ${closing.won ? 'bg-green-100' : 'bg-red-100'}`}>
-              {closing.won ? <Trophy className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-500" />}
+            <div className="h-10 w-10 rounded-xl bg-green-100 flex items-center justify-center mb-4">
+              <Trophy className="h-5 w-5 text-green-600" />
             </div>
-            <h3 className="font-bold text-[#1A1A2E] mb-1">
-              {closing.won ? 'Marcar como Ganho' : 'Marcar como Perdido'}
-            </h3>
-            <p className="text-sm text-gray-500 mb-4"><strong>{closing.deal.title}</strong></p>
-            {!closing.won && (
-              <div className="mb-4">
-                <label className="text-xs font-medium text-gray-600">Motivo da perda (opcional)</label>
-                <input value={lossReason} onChange={e => setLossReason(e.target.value)}
-                  placeholder="Ex: Preço, concorrente, sem budget..."
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200" />
-              </div>
-            )}
+            <h3 className="font-bold text-[#1A1A2E] mb-1">Marcar como Ganho</h3>
+            <p className="text-sm text-gray-500 mb-6"><strong>{ganhandoDeal.title}</strong></p>
             <div className="flex gap-2">
-              <button onClick={() => setClosing(null)}
+              <button onClick={() => setGanhandoDeal(null)}
                 className="flex-1 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
-              <button onClick={doClose} disabled={pending}
-                className={`flex-1 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 ${closing.won ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'}`}>
-                {pending ? 'Salvando...' : 'Confirmar'}
+              <button onClick={handleGanho} disabled={pending}
+                className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+                {pending ? 'Salvando...' : '🎉 Confirmar'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Confirmar exclusão */}
+      {/* Modal — Excluir */}
       {deleting && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <h3 className="font-bold text-[#1A1A2E] mb-2">Excluir proposta?</h3>
-            <p className="text-sm text-gray-600 mb-5"><strong>{deleting.title}</strong> será removido permanentemente.</p>
+            <p className="text-sm text-gray-600 mb-5"><strong>{deleting.title}</strong> será removida permanentemente.</p>
             <div className="flex gap-2">
               <button onClick={() => setDeleting(null)}
                 className="flex-1 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>

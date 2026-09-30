@@ -103,25 +103,46 @@ export function PainelInteracao({ contato, userId, onClose }: {
           </button>
         </div>
 
-        {/* Quick contact buttons */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b bg-gray-50">
+        {/* Quick contact info + buttons */}
+        <div className="px-4 py-3 border-b bg-gray-50 space-y-2">
           {waUrl && (
-            <a href={waUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs font-medium bg-green-500 text-white px-3 py-1.5 rounded-full hover:bg-green-600 transition-colors">
-              <ExternalLink className="h-3 w-3" /> WhatsApp
-            </a>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <ExternalLink className="h-3 w-3 text-green-600 shrink-0" />
+                <span className="text-xs text-gray-600 truncate">{contato.telefone}</span>
+              </div>
+              <a href={waUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs font-medium bg-green-500 text-white px-3 py-1 rounded-full hover:bg-green-600 transition-colors shrink-0">
+                WhatsApp
+              </a>
+            </div>
           )}
           {contato.email && (
-            <a href={`mailto:${contato.email}`}
-              className="flex items-center gap-1.5 text-xs font-medium bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200 transition-colors">
-              <Mail className="h-3 w-3" /> E-mail
-            </a>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Mail className="h-3 w-3 text-blue-500 shrink-0" />
+                <span className="text-xs text-gray-600 truncate">{contato.email}</span>
+              </div>
+              <a href={`mailto:${contato.email}`}
+                className="flex items-center gap-1 text-xs font-medium bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors shrink-0">
+                E-mail
+              </a>
+            </div>
           )}
           {contato.telefone && (
-            <a href={`tel:${contato.telefone}`}
-              className="flex items-center gap-1.5 text-xs font-medium bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full hover:bg-gray-300 transition-colors">
-              <Phone className="h-3 w-3" /> Ligar
-            </a>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Phone className="h-3 w-3 text-gray-500 shrink-0" />
+                <span className="text-xs text-gray-600 truncate">{contato.telefone}</span>
+              </div>
+              <a href={`tel:${contato.telefone}`}
+                className="flex items-center gap-1 text-xs font-medium bg-gray-200 text-gray-700 px-3 py-1 rounded-full hover:bg-gray-300 transition-colors shrink-0">
+                Ligar
+              </a>
+            </div>
+          )}
+          {!waUrl && !contato.email && !contato.telefone && (
+            <p className="text-xs text-gray-400">Nenhum contato cadastrado.</p>
           )}
         </div>
 

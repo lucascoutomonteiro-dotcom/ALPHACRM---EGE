@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
-import { metas, contatos, interacoes, clientesEge, interacoesEge, crmEventos } from '@/lib/schema'
+import { metas, contatos, interacoes, clientesEge, interacoesEge, crmEventos, deals, dealColunas } from '@/lib/schema'
 import { eq, and, lte, gt, inArray, desc, sql as drizzleSql, gte } from 'drizzle-orm'
+import { DashboardPropostas, type PropostasData, type RawDeal, type DealColunaMeta } from '@/components/dashboard/DashboardPropostas'
+import { requireAuth } from '@/lib/session'
 import { KPICardToggle } from '@/components/dashboard/KPICardToggle'
 import { GaugeChart } from '@/components/dashboard/GaugeChart'
 import { GraficoEvolucao } from '@/components/dashboard/GraficoEvolucao'
@@ -26,6 +28,7 @@ interface PageProps {
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   try {
+  const user = await requireAuth()
   const params = await searchParams
   const now = new Date()
   const mesAtual = now.getMonth() + 1
@@ -326,6 +329,96 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ultimaInterMap[i.contatoId] = [dataStr, i.tipo, i.descricao].filter(Boolean).join(' — ')
   }
 
+  // ── ANÁLISE DE PROPOSTAS ─────────────────────────────────────────────────
+  let propostasData: PropostasData = { rawDeals: [], colunas: [] }
+  // Auto-computed gauge actuals (computed below if deals exist)
+  let autoVendas = v        // fallback to metas manual values
+  let autoPipeline = p
+  let autoPropostasQtd = rpr
+  let autoPropostasValor = rprV
+  let autoProspeccoes = rprosp + egeInteracoesMes
+  let autoReunioes = rreu + egeReunioesMes
+
+  try {
+    // Busca todos os deals da organização com cidade e serviço do contato
+    const dealsRows = await db.select({
+      id: deals.id,
+      title: deals.title,
+      value: deals.value,
+      status: deals.status,
+      temperatura: deals.temperatura,
+      lossReason: deals.lossReason,
+      createdAt: deals.createdAt,
+      updatedAt: deals.updatedAt,
+      contatoId: deals.contatoId,
+      cidadeContato: contatos.cidade,
+      servicoContato: contatos.servicoOportunidade,
+    }).from(deals)
+      .leftJoin(contatos, eq(deals.contatoId, contatos.id))
+      .where(eq(deals.organizationId, user.organizationId))
+
+    // Busca colunas de temperatura (exceto sistema=false → apenas open cols)
+    const colunasRows = await db.select({
+      id: dealColunas.id,
+      nome: dealColunas.nome,
+      cor: dealColunas.cor,
+      slug: dealColunas.slug,
+      ordem: dealColunas.ordem,
+    }).from(dealColunas)
+      .where(eq(dealColunas.organizationId, user.organizationId))
+
+    // ── Auto-computar reais dos gauges a partir dos dados reais ─────────────
+    // Vendas = won deals com updatedAt no(s) mês(es) selecionado(s) do ano
+    const wonPeriodo = dealsRows.filter(d => {
+      if (d.status !== 'won' || !d.updatedAt) return false
+      const dt = new Date(d.updatedAt)
+      return dt.getFullYear() === ano && mesesSelecionados.includes(dt.getMonth() + 1)
+    })
+    autoVendas = wonPeriodo.reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
+
+    // Pipeline = open deals atuais (snapshot, sem filtro de período)
+    const openDeals = dealsRows.filter(d => d.status === 'open')
+    autoPipeline = openDeals.reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
+
+    // Propostas = deals criados no período
+    const criadasPeriodo = dealsRows.filter(d => {
+      if (!d.createdAt) return false
+      const dt = new Date(d.createdAt)
+      return dt.getFullYear() === ano && mesesSelecionados.includes(dt.getMonth() + 1)
+    })
+    autoPropostasQtd = criadasPeriodo.length
+    autoPropostasValor = criadasPeriodo.reduce((s, d) => s + (d.value ? Number(d.value) : 0), 0)
+
+    // Prospecções e Reuniões = interacoes do período (CRM) + EGE
+    const interPeriodo = interacoesCrm.filter(i => {
+      if (!i.dataInteracao) return false
+      const dt = new Date(i.dataInteracao)
+      return dt.getFullYear() === ano && mesesSelecionados.includes(dt.getMonth() + 1)
+    })
+    autoProspeccoes = interPeriodo.length + egeInteracoesMes
+    autoReunioes = interPeriodo.filter(i => i.tipo === 'Reunião').length + egeReunioesMes
+
+    // ── Serializar dados brutos para o componente cliente ───────────────────
+    const rawDeals: RawDeal[] = dealsRows.map(d => ({
+      id: d.id,
+      title: d.title,
+      value: d.value ? Number(d.value) : null,
+      status: d.status ?? 'open',
+      temperatura: d.temperatura ?? null,
+      lossReason: d.lossReason ?? null,
+      createdAt: d.createdAt ? new Date(d.createdAt).toISOString() : null,
+      updatedAt: d.updatedAt ? new Date(d.updatedAt).toISOString() : null,
+      cidadeContato: d.cidadeContato ?? null,
+      servicoContato: d.servicoContato ?? null,
+    }))
+
+    const colunas: DealColunaMeta[] = colunasRows
+      .filter(c => c.slug !== 'perdida' && c.slug !== 'ganho')
+      .map(c => ({ slug: c.slug, nome: c.nome, cor: c.cor, ordem: c.ordem }))
+
+    propostasData = { rawDeals, colunas }
+  } catch { /* deals pode não existir ainda */ }
+
   const labelMeses = mesesSelecionados.length === 1
     ? new Date(ano, mesesSelecionados[0] - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : `${mesesSelecionados.length} meses — ${ano}`
@@ -341,58 +434,31 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <DashboardFilters defaultMes={mesAtual} defaultAno={anoAtual} />
       </Suspense>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICardToggle
-          titulo="Vendas Realizadas"
-          primary={{ valor: v, meta: mv, formato: 'moeda' }}
-          secondary={{ valor: totalContratos, meta: mcontrat, formato: 'numero', labelValor: 'contratos fechados' }}
-        />
-        <KPICardToggle titulo="EBITDA Realizado" primary={{ valor: e, meta: me, formato: 'moeda' }} />
-        <KPICardToggle
-          titulo="Pipeline Atual"
-          primary={{ valor: p, meta: mp, formato: 'moeda' }}
-          secondary={{ valor: pQtd, meta: 0, formato: 'numero', labelValor: 'propostas quentes' }}
-        />
-        <KPICardToggle
-          titulo="Propostas Enviadas"
-          primary={{ valor: rprV, meta: mprV, formato: 'moeda' }}
-          secondary={{ valor: rpr, meta: mpr, formato: 'numero', labelValor: 'propostas' }}
-        />
-      </div>
-
-      {ticketMedio > 0 && (
-        <div className="bg-white rounded-xl border p-4 flex items-center gap-4">
-          <div>
-            <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">Ticket Médio</div>
-            <div className="text-2xl font-bold text-[#1B4F8A] mt-0.5">{fmtBRL(ticketMedio)}</div>
-          </div>
-          <div className="text-xs text-gray-400 border-l pl-4">{totalContratos} contrato{totalContratos !== 1 ? 's' : ''} fechado{totalContratos !== 1 ? 's' : ''}</div>
-        </div>
-      )}
+      <DashboardPropostas data={propostasData} />
 
       <div className="bg-white rounded-xl border p-6">
-        <h2 className="text-sm font-semibold text-gray-600 mb-4">% Atingido da Meta</h2>
+        <h2 className="text-sm font-semibold text-gray-600 mb-1">% Atingido da Meta</h2>
+        <p className="text-[11px] text-gray-400 mb-4">Calculado automaticamente a partir dos dados reais do período selecionado</p>
         <div className="flex flex-wrap gap-6 justify-around">
-          <GaugeChart label="Vendas" pct={pct(v, mv)} tooltip={`${fmtBRL(v)} de ${fmtBRL(mv)}`} />
-          <GaugeChart label="EBITDA" pct={pct(e, me)} />
-          <GaugeChart label="Pipeline" pct={pct(p, mp)} tooltip={`${fmtBRL(p)} de ${fmtBRL(mp)}`} />
+          <GaugeChart label="Vendas" pct={pct(autoVendas, mv)} tooltip={`${fmtBRL(autoVendas)} de ${fmtBRL(mv)}`} />
+          <GaugeChart label="Pipeline" pct={pct(autoPipeline, mp)} tooltip={`${fmtBRL(autoPipeline)} de ${fmtBRL(mp)}`} sublabel="atual" />
           <GaugeChart
             label="Propostas"
-            pct={pct(rpr + egePropostasMes, mpr)}
-            tooltip={`${rpr} CRM + ${egePropostasMes} Oport. = ${rpr + egePropostasMes} de ${mpr} propostas`}
-            sublabel={egePropostasMes > 0 ? `${rpr} CRM · ${egePropostasMes} Oport.` : undefined}
+            pct={pct(autoPropostasQtd, mpr)}
+            tooltip={`${autoPropostasQtd} criadas · ${fmtBRL(autoPropostasValor)} de ${fmtBRL(mprV)}`}
+            sublabel={`${autoPropostasQtd} de ${mpr}`}
           />
           <GaugeChart
             label="Prospecções"
-            pct={pct(rprosp + egeInteracoesMes, mprosp)}
-            tooltip={`${rprosp} CRM + ${egeInteracoesMes} Oport. = ${rprosp + egeInteracoesMes} de ${mprosp}`}
-            sublabel={`${rprosp} CRM · ${egeInteracoesMes} Oport.`}
+            pct={pct(autoProspeccoes, mprosp)}
+            tooltip={`${autoProspeccoes} interações de ${mprosp} meta`}
+            sublabel={`${autoProspeccoes} total`}
           />
           <GaugeChart
             label="Reuniões"
-            pct={pct(rreu + egeReunioesMes, mreu)}
-            tooltip={`${rreu} CRM + ${egeReunioesMes} Oport. = ${rreu + egeReunioesMes} de ${mreu} reuniões`}
-            sublabel={egeReunioesMes > 0 ? `${rreu} CRM · ${egeReunioesMes} Oport.` : undefined}
+            pct={pct(autoReunioes, mreu)}
+            tooltip={`${autoReunioes} reuniões de ${mreu} meta`}
+            sublabel={`${autoReunioes} de ${mreu}`}
           />
         </div>
       </div>

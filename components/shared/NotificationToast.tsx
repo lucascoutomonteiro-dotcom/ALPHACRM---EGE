@@ -17,9 +17,19 @@ const TYPE_CONFIG = {
   today:   { icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50', label: 'Hoje' },
 }
 
+const LS_KEY = 'alphaCRM_dismissed_notifications'
+
+function loadDismissed(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) ?? '[]') as string[]) } catch { return new Set() }
+}
+
+function saveDismissed(s: Set<string>) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify([...s])) } catch { /* ignore */ }
+}
+
 export function NotificationToast({ notifications }: { notifications: Notification[] }) {
   const [open, setOpen] = useState(false)
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed())
   const ref = useRef<HTMLDivElement>(null)
 
   const active = notifications.filter(n => !dismissed.has(n.id))
@@ -35,12 +45,12 @@ export function NotificationToast({ notifications }: { notifications: Notificati
   }, [])
 
   function dismiss(id: string) {
-    setDismissed(prev => new Set([...prev, id]))
+    setDismissed(prev => { const next = new Set([...prev, id]); saveDismissed(next); return next })
   }
 
   function dismissAll() {
-    setDismissed(new Set(notifications.map(n => n.id)))
-    setOpen(false)
+    const next = new Set(notifications.map(n => n.id))
+    setDismissed(next); saveDismissed(next); setOpen(false)
   }
 
   return (

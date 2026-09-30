@@ -34,7 +34,6 @@ const navItems = [
   { href: '/oportunidades', label: 'Oportunidades', icon: Building2 },
   { href: '/metas', label: 'Metas', icon: Target },
   { href: '/plano', label: 'Plano de Ação', icon: ClipboardList },
-  { href: '/key-accounts', label: 'Key Accounts', icon: Star },
   { href: '/admin/pipelines', label: 'Pipelines', icon: GitBranch },
   { href: '/admin/campos', label: 'Campos', icon: Sliders },
   { href: '/admin/usuarios', label: 'Usuários', icon: Settings },
